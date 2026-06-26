@@ -7,14 +7,12 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14  # macOS فقط - Theos يحتاج macOS
+    runs-on: macos-14
 
     steps:
-      # ========== STEP 1: Checkout ==========
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ========== STEP 2: Setup Theos ==========
       - name: Setup Theos
         run: |
           export THEOS=~/theos
@@ -22,15 +20,12 @@ jobs:
           echo "$THEOS/bin" >> $GITHUB_PATH
           bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
 
-      # ========== STEP 3: Install iOS SDK ==========
       - name: Install iOS SDK
         run: |
           export THEOS=~/theos
           git clone --depth=1 https://github.com/theos/sdks.git /tmp/sdks
           cp -r /tmp/sdks/iPhoneOS16.5.sdk $THEOS/sdks/ || true
-          ls -la $THEOS/sdks/
 
-      # ========== STEP 4: Download ImGui ==========
       - name: Download ImGui
         run: |
           rm -rf imgui
@@ -39,80 +34,25 @@ jobs:
           curl -L "https://github.com/ocornut/imgui/archive/refs/tags/v1.89.9.tar.gz" -o imgui.tar.gz
           tar -xzf imgui.tar.gz --strip-components=1
           rm imgui.tar.gz
-          # نقل الملفات
           mv imgui.cpp imgui.h imgui_draw.cpp imgui_tables.cpp imgui_widgets.cpp imgui_demo.cpp . 2>/dev/null || true
           mv backends/imgui_impl_metal.h backends/imgui_impl_metal.mm . 2>/dev/null || true
-          # إنشاء dummy OSX backend
           echo '#pragma once' > imgui_impl_osx.h
           echo 'inline void ImGui_ImplOSX_Init(void*) {}' >> imgui_impl_osx.h
           echo 'inline void ImGui_ImplOSX_Shutdown() {}' >> imgui_impl_osx.h
           echo 'inline void ImGui_ImplOSX_NewFrame() {}' >> imgui_impl_osx.h
           echo '#include "imgui_impl_osx.h"' > imgui_impl_osx.mm
           cd ..
-          echo "ImGui files:"
-          ls -la imgui/
 
-      # ========== STEP 5: Verify ldid ==========
-      - name: Verify ldid
-        run: |
-          export THEOS=~/theos
-          # استخدام ldid من Theos
-          $THEOS/bin/ldid -v || true
-          # أو تثبيت من Homebrew
-          brew install ldid || true
-
-      # ========== STEP 6: Build dylib ==========
       - name: Build dylib
         run: |
           export THEOS=~/theos
           export PATH="$THEOS/bin:$PATH"
           make clean
           make DEBUG=0
-          echo "Build output:"
-          ls -la .theos/obj/
 
-      # ========== STEP 7: Verify Output ==========
-      - name: Verify Output
-        run: |
-          echo "Checking dylib..."
-          file .theos/obj/OneStateLogin.dylib
-          ls -la .theos/obj/OneStateLogin.dylib
-
-      # ========== STEP 8: Upload DYLIB ==========
       - name: Upload DYLIB
         uses: actions/upload-artifact@v4
         with:
           name: OneStateLogin-dylib
           path: .theos/obj/OneStateLogin.dylib
           retention-days: 30
-
-      # ========== STEP 9: Create Release ==========
-      - name: Create Release
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ github.run_number }}
-          name: OneStateLogin v${{ github.run_number }}
-          body: |
-            ## OneStateLogin - Fullscreen Login dylib
-            
-            ### Features:
-            - Fullscreen login screen (covers entire screen)
-            - API verification
-            - Device ID binding
-            - Disappears ONLY on successful login
-            
-            ### How to use:
-            1. Download `OneStateLogin.dylib`
-            2. Sign with your certificate (Esign, TrollStore)
-            3. Inject into OneState app
-            
-            ### Default Login:
-            - Username: `admin`
-            - Password: `123456`
-            
-            ### Note:
-            This dylib is unsigned. Sign it with your certificate before injecting.
-          files: .theos/obj/OneStateLogin.dylib
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
