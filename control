@@ -1,0 +1,9 @@
+Package: com.yourname.onestatelogin
+Name: OneState Login
+Depends: mobilesubstrate
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: OneState Fullscreen Login - API + DeviceID
+Maintainer: YourName
+Author: YourName
+Section: Tweaks
